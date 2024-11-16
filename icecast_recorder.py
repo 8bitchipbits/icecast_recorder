@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import os
 import sys
+import re
 import traceback
+import platform
 from urllib.request import Request, urlopen
 from time import time
 from datetime import timedelta
+from slugify import slugify
 
 if len(sys.argv) != 2:
     print("Usage: icecast_recorder.py <url>")
@@ -41,7 +44,11 @@ if "icy-br" in headers:
     print("Bitrate: ", headers["icy-br"], "kb/s")
 print("--------------------------------------------")
 
-file = open("/dev/null", "wb")
+if platform.system() == 'Windows':
+    file = open(slugify(sys.argv[1])+".tmp", "wb")
+else:
+    file = open("/dev/null", "wb")
+    
 start_time = time()
 counter = 0
 
@@ -64,17 +71,20 @@ try:
                     tmp = pair.split('=')
                     if len(tmp) > 1:
                         metadata[tmp[0]] = tmp[1].strip("'")
+                        print(metadata)
             except Exception as e:
                 pass
 
         # Processing track change
         if metadata is not None:
+            
             time_offset = timedelta(seconds = round(time() - start_time))
             if "StreamTitle" in metadata:
-                stream_title = metadata["StreamTitle"].replace('/', '\\')
+                # Make filename Windows valid
+                stream_title = re.sub(r'[\\/*?:"<>|]',"-",metadata["StreamTitle"])
                 file.close()
                 #os.system("mp3check --add-tag --cut-junk-start --cut-junk-end '"+file.name+"' > /dev/null")
-                print(str(time_offset) + "   " + stream_title)
+                print(str(time_offset) + "   " + slugify(stream_title))
                 file = open(str(counter) + ". " + stream_title + ".mp3", "wb")
                 counter += 1
             else:
